@@ -1,0 +1,39 @@
+---
+title: "Transcriptome analysis manual"
+author: "Varvara Tvorogova"
+date: "3 April 2021"
+output: html_document
+---
+This manual describes common transcriptome processing for differential expression analysis
+
+First of all, you need to download files with raw reads with .fastq. They are usually packed with gunzip and have .fastq.gz extension. Move them to the new folder, which contains only fastq.gz files analysed.
+Now you need to evaluate the quality of your reads. You can use fastqc program for that.
+Fastqc can be downloaded from here https://www.bioinformatics.babraham.ac.uk/projects/download.html
+You do not need to install it, just unpack it in some directory.
+In this directory, you can find a file called fastqc. You should make it executable with this command:
+
+```{bash}
+chmod 755 fastqc #instead fastqc install the real address for fastqc file here 
+```
+To run fastqc for all samples, you can use this script. 
+```{bash}
+#!/bin/bash
+for FASTQ in *.fastq.gz
+do
+fastqc {FASTQ}
+done
+```
+
+To use it, save all the text between ```{bash} and ``` in the file with .sh extension, for example "run_fastqc.sh"
+Then, in command line, go to the directory, where your fastq.gz files are located.
+ You can use cd command for that.
+ Being in this directory, print:
+ 
+```{bash}
+bash run_fastqc.sh #instead run_fastqc.sh install the real address for run_fastqc.sh file here
+```
+ 
+
+fastqc program should analyze your fastq.gz files and save the results as .html and .zip format. After that, check out the results, for example, in your browser (for .html files)
+
+
