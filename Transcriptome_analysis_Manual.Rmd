@@ -32,8 +32,26 @@ Then, in command line, go to the directory, where your fastq.gz files are locate
 ```{bash}
 bash run_fastqc.sh #instead run_fastqc.sh install the real address for run_fastqc.sh file here
 ```
- 
+
 
 fastqc program should analyze your fastq.gz files and save the results as .html and .zip format. After that, check out the results, for example, in your browser (for .html files)
+You may want to trim your reads or to filter them by quality score
+You can use trimmomatic for that
+To install trimmomatic, run in the command line:
+sudo apt-get install -y trimmomatic
+After that, this script can help you to run trimmomatic. You can run it, like you run the run_fastqc.sh script
+This script is not full, you can see the trimmomatic manual and to add more variables
+```{bash}
+#!/bin/bash
+start=15 #here you can type, how many nucleotides you want to crop from the start of all reads
+end=100 #here you can type the desired length of reads (all excessive bases will be cropped from the end of the read)
+mkdir ../trimmed_fastqs
+for FQ in *.fastq.gz
+do
+    java -jar /usr/share/java/trimmomatic.jar SE -phred33 -trimlog ../trimmed_fastqs/${FQ%%.fastq.gz}.log ${FQ}\
+    ../trimmed_fastqs/${FQ%%.fastq.gz}_trimmed.fastq.gz HEADCROP:${start} CROP:${end}
+    
+done
+```
 
 
