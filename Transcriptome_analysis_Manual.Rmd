@@ -13,7 +13,7 @@ You do not need to install it, just unpack it in some directory.
 In this directory, you can find a file called fastqc. You should make it executable with this command:
 
 ```{bash}
-chmod 755 fastqc #instead fastqc install the real address for fastqc file here 
+chmod 755 fastqc #instead fastqc insert the real address for fastqc file here 
 ```
 To run fastqc for all samples, you can use this script. 
 ```{bash}
@@ -30,7 +30,7 @@ Then, in command line, go to the directory, where your fastq.gz files are locate
  Being in this directory, print:
  
 ```{bash}
-bash run_fastqc.sh #instead run_fastqc.sh install the real address for run_fastqc.sh file here
+bash run_fastqc.sh #instead run_fastqc.sh insert the real address for run_fastqc.sh file here
 ```
 
 
@@ -53,5 +53,63 @@ do
     
 done
 ```
+Now you can align your reads to the genome. If you analyse Medicago reads, you can download the latest, 5.0 version of the genome here ( https://medicago.toulouse.inra.fr/MtrunA17r5.0-ANR/ ), as well as its annotation (https://medicago.toulouse.inra.fr/MtrunA17r5.0-ANR/ ),
+I suggest to use HISAT2 for alignment. To install HISAT2, run these commands in the command line:
+```{bash}
+sudo apt update
+sudo apt install hisat2
+```
+You will also need samtools installed for sorting bam files after hisat2.
+To install samtools, you can use these commands in the command line:
+```{bash}
+sudo apt update
+sudo apt install samtools
+```
+Now, when you have HISAT2 and samtools installed, you should build special hisat2 index for your reference genome.
+To do that, !!go to the folder where your genome is located using cd command (!) , and then run this command in the command line:
+```{bash}
+hisat2-build /home/seburtsiy/MEGA/Research/DNA/Medicago_truncatula_genome/Medicago_truncatula_A17_5_0_genome/MtrunA17r5.0-20161119-ANR.genome.fasta MtrunA17r5.0-20161119-ANR.genome
+```
+Here, the command is hisat2-build, the first variable is the address of the fasta file for your genome and the second variable is the name of the hisat2 index which should be used.
+After that, in the folder with your genome, several files with ht2 extension should appear. This is your hisat2 index. 
+Now you can align your reads.
+You can use this bash script to do so. You can run it, like you run the run_fastqc.sh script
+```{bash}
+#!/bin/bash
+mkdir ../bams #make a new folder for future bam files
+for FQ in *R1_paired.fastq.gz
+do
+hisat2 -p 11 -x /home/seburtsiy/Medicago_genome/GCF_003473485.1_MtrunA17r5.0-ANR_genomic -1 ${FQ} -2 ${FQ%%R1_paired.fastq.gz}R2_paired.fastq.gz --dta \
+| samtools sort > ../bams/${FQ%%R1_paired.fastq.gz}.bam
+  
+done
+```
+In this script, -p variable determines the number of threads which will be used for alingments. If your computer has 8 threads (you can learn that, opening System Monitor program (the Resources tab) and checking, how many CPU do you have), you can set -p 8 or 7 - in this case the process will be finished more shortly than in the case when you do not use -p variable.
+-x variable determines the address of the genome index (the name of your index should be the same you used in hisat2-build command)
+-1 and -2 variables describe the addresses of your paired reads (1 and 2). If your reads are unpaired, you can use -U variable and the address of your unpaired reads (see hisat2 manual).
+-dta variable is needed to add special index for spliced reads. It is necessary for Stringtie tool, which will be used at the next step.
+The result of hisat2 work is immediately transfered to samtools tool in this script. Samtools sort the obtained sam files and write the result into the .bam files.
+After that, you can run Stringtie tools to count the reads aligned on specific genes. To do so, you need not only your bam files, but also the genome annotation in gtf or gff3 format. If you analyse medicago reads, you can download the last version of annotation here https://medicago.toulouse.inra.fr/MtrunA17r5.0-ANR/ 
+To install stringtie, run 
 
+```{bash}
+sudo apt update
+sudo apt install stringtie
+```
+After that, you can run stringtie with this script. You can run it, like you run the run_fastqc.sh script
+```{bash}
+#!/bin/bash
 
+mkdir ../gtfs
+for BAM in *.bam
+
+do
+
+stringtie ${BAM} -G /home/seburtsiy/MEGA/Research/DNA/Medicago_truncatula_genome/Medicago_truncatula_A17_5_0_genome/MtrunA17r5.0-ANR-EGN-r1.8.gff3 -o ../gtfs/${BAM%%.bam}.gtf -p 8 -e -A ../gtfs/${BAM%%.bam}_gene_abundance.tab
+
+done
+```
+
+Here, -G variable determines the location of the annotation of your genome, -o variable determines, where stringtie should write the output gtf files, -p variable again determines the number of threads which will be used for counting. -e option lmits the processing of read alignments to only estimate and output the assembled transcripts matching the reference transcripts given with the -G option.
+
+Now you should have .tf and gene_abundance files in the "gtfs" directory.
