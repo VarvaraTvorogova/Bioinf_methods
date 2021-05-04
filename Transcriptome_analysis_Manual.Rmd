@@ -112,4 +112,24 @@ done
 
 Here, -G variable determines the location of the annotation of your genome, -o variable determines, where stringtie should write the output gtf files, -p variable again determines the number of threads which will be used for counting. -e option lmits the processing of read alignments to only estimate and output the assembled transcripts matching the reference transcripts given with the -G option.
 
-Now you should have .tf and gene_abundance files in the "gtfs" directory.
+Now you should have .gtf and gene_abundance .tab files in the "gtfs" directory.
+Stringtie has special python script to prepare these files for downstream DESeq analysis of differential expression. It is called prepDE.py3 and you can download it here http://ccb.jhu.edu/software/stringtie/index.shtml?t=manual
+If you do not have python3 on your computer, you can install it (see this manual for instructions)
+https://docs.python-guide.org/starting/install3/linux/
+
+This script needs a .txt file with the list of samples names and addresses. Here is the example of such file (between ```  and ``` signs)
+```
+GUS_1 /home/seburtsiy/Transcriptome_analysis/gtfs/VT05-Gus1_S26_L006_.gtf
+GUS_2 /home/seburtsiy/Transcriptome_analysis/gtfs/VT03-GUS2_S14_L004_.gtf
+GUS_3 /home/seburtsiy/Transcriptome_analysis/gtfs/VT04-GUS3_S3_L008_.gtf
+WOX2_1 /home/seburtsiy/Transcriptome_analysis/gtfs/VT09-W2-1_S22_L005_.gtf
+WOX2_2 /home/seburtsiy/Transcriptome_analysis/gtfs/VT01-W2_S21_L005_.gtf
+WOX2_3 /home/seburtsiy/Transcriptome_analysis/gtfs/VT02-W3_S5_L002_.gtf
+```
+Make such file, then, in your command line, go to the directory where you want to be the table with for DESeq analysis and run this command:
+```
+python3 /home/seburtsiy/Tools/prepDE.py3 -i /home/seburtsiy/Transcriptome_analysis/samples_lst.txt
+
+```
+After that, you should get two files, gene_count_matrix.csv and transcript_count_matrix.csv. You will need gene_count_matrix.csv for DESeq analysis.
+
