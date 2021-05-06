@@ -53,7 +53,8 @@ do
     
 done
 ```
-Now you can align your reads to the genome. If you analyse Medicago reads, you can download the latest, 5.0 version of the genome here ( https://medicago.toulouse.inra.fr/MtrunA17r5.0-ANR/ ), as well as its annotation (https://medicago.toulouse.inra.fr/MtrunA17r5.0-ANR/ ),
+Now you can align your reads to the genome. If you analyse Medicago reads, you can download the latest, 5.0 version of the genome here ( https://medicago.toulouse.inra.fr/MtrunA17r5.0-ANR/ ), as well as its annotation (https://medicago.toulouse.inra.fr/MtrunA17r5.0-ANR/ ).
+But I suggest to use 4.0 version now, because in is annotated more fully https://www.ncbi.nlm.nih.gov/assembly/GCF_000219495.3
 I suggest to use HISAT2 for alignment. To install HISAT2, run these commands in the command line:
 ```{bash}
 sudo apt update
@@ -90,6 +91,7 @@ In this script, -p variable determines the number of threads which will be used 
 -dta variable is needed to add special index for spliced reads. It is necessary for Stringtie tool, which will be used at the next step.
 The result of hisat2 work is immediately transfered to samtools tool in this script. Samtools sort the obtained sam files and write the result into the .bam files.
 After that, you can run Stringtie tools to count the reads aligned on specific genes. To do so, you need not only your bam files, but also the genome annotation in gtf or gff3 format. If you analyse medicago reads, you can download the last version of annotation here https://medicago.toulouse.inra.fr/MtrunA17r5.0-ANR/ 
+The 4.0 version of annotation can be downloaded here https://www.ncbi.nlm.nih.gov/assembly/GCF_000219495.3 
 To install stringtie, run 
 
 ```{bash}
