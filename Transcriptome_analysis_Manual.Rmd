@@ -20,7 +20,7 @@ To run fastqc for all samples, you can use this script.
 #!/bin/bash
 for FASTQ in *.fastq.gz
 do
-fastqc {FASTQ}
+fastqc ${FASTQ}
 done
 ```
 
