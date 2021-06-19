@@ -1,0 +1,248 @@
+---
+title: "DeSeq_results_counting"
+author: "Varia"
+date: '11 ноября 2018 г '
+output:
+  html_document: default
+  pdf_document: default
+editor_options:
+  chunk_output_type: console
+---
+Add all necessary libraries
+
+```{r include=FALSE}
+library(DESeq2)
+library(dplyr)
+library(ggplot2)
+library(pheatmap)
+library(gplots)
+library(ggrepel)
+library(data.table)
+library(limma)
+library(RColorBrewer )
+library(gplots)
+library(tibble)
+library(pheatmap)
+library(reshape2)
+library(stringr)
+
+```
+
+
+Setting variables: 
+
+```{r}
+setwd ('/mnt/Data/MEGA/Research/Experiments/Transcriptomes/GUSoe_vs_MtWOX2_oe/R_analysis_v4') #Working directory 
+c <- 'GUSoe' #Control condition
+s <- 'MtWOX2oe' #Treatment condition
+control <- c('GUS_1', 'GUS_2', 'GUS_3') #Names of control samples from coldata table
+sample <- c('MtWOX2_1', 'MtWOX2_2', 'MtWOX2_3') #Names of treatment samples from coldata table
+both <- c(control, sample) #names of all samples
+LFC <- 1 #log fold change threshold for selection of Differentialy Expressed Genes (DEGs)
+p_value <- 0.01 #p value threshold for selection of DEGs
+read_thr <- 0 # minimum number of reads across all samples for gene to analyze
+gene_name <- 'gene_id' #name of column in our data containing gene names
+cond <- 'Genotype' #name of your major variable which impact you are about to analyze. It will be used in diagrams etc. Note, that in the coldata table it is better to use "condition", even if you have another major variable (for ex., Genotype), because it is default name. 
+```
+
+Create folders for resulting plots and tables in working directory, if they don't exist yet
+```{r}
+if (file.exists('PLOTS')){
+  
+} else {
+    dir.create(file.path('PLOTS'))
+}
+
+if (file.exists('TABLES')){
+  
+} else {
+    dir.create(file.path('TABLES'))
+}
+
+```
+
+
+
+Read two files. First (coldata) is table which matches sample name with their conditions. cts is table with non-normalized data on gene expression, where rows are genes, columns are samples and cells contain numbers of reads aligned for specific gene in specific sample.
+
+```{r}
+coldata <- read.csv ('coldata.csv', sep = ',')
+cts <- dplyr::select (read.csv ('cts.csv', sep = ','), gene_name, all_of(both)) # using "select" function and "both" variable, we choose only those samples which we are interested in.
+```
+
+
+Now we should prepare data for analysis. 
+
+```{r}
+cts_backup <- cts #preserve unchanged cts version just in case
+coldata_backup <- coldata #preserve unchanged coldata version just in case
+#coldata <- coldata_backup #you can use this line to get the backup quickly
+#cts <- cts_backup #you can use this line to get the backup quickly
+rownames(cts) <- cts[, gene_name] #make gene names as rownames
+cts <- cts[, -1] #remove column with rownames, it is unnecessary now
+cts [, both] <- lapply ((cts [, both]), as.integer) #make read number values integers instead of float
+
+coldata[,] <- lapply (coldata[,], as.factor) # make all condition in coldata as factors, not characters, integers etc.
+
+str(coldata) #now checking the structure of coldata
+str(cts) #now checking the structure of cts
+write (paste(rownames(cts), collapse=", "), file = 'Genes_list') #saving the list of genes into file
+coldata <-  coldata[match(colnames(cts), coldata$X),] #make the order of samples in the coldata the same as in the cts
+```
+
+Now make DESeq object from our cts and coldata table. The design should show, which variable(s) DeSEQ should analyze for its effect (usually it is the main variable) and which variables it should take into consideration (for ex, batch, source of material etc)
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = cts,
+                              colData = coldata,
+                              design = ~ condition)
+```
+
+Now perform principal component analysis to check your samples and to obtain nice picture
+```{r}
+vsd <- vst(dds, blind=TRUE) #perform variable stabilizing transformation with raw data from DESeq object. This is only needed for pca analyzis
+
+batchplot <- plotPCA(vsd, returnData = TRUE) #perform pca analyzis with vsd data, pca info is now written in the batchplot
+
+percentVar <- round(100 * attr(batchplot, "percentVar")) #I'm not sure but it seems that here, using attr function, we get special attribute of batchplot, called percentVar, representing % of variance for first and second principal components. Anyway, the resulting vector will be used in the plot.
+ggplot(batchplot, aes(PC1, PC2, color=condition)) + #make color picture
+  geom_point(size=4) +
+  #scale_colour_manual(values=c("dodgerblue2", "springgreen3"))+ #in case you need special colors, you can change them here
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
+  #coord_fixed() +
+  theme_bw()+
+  theme(legend.text=element_text(size=10))+
+  ggtitle("PC analysis of samples")+
+  labs(color=cond)+
+    theme(axis.title=element_text(size = 15), plot.title = element_text(hjust = 0.5, size = 20), axis.text.y = element_text(size = 15), axis.text.x = element_text(size = 15), legend.text = element_text(size = 15), legend.title = element_text(size = 17))
+
+ggsave("PLOTS/PCAcolor.eps", device = "eps", width = 25, height = 20, units = "cm") #save color picture
+
+ggplot(batchplot, aes(PC1, PC2, color=condition)) + #make color picture
+  geom_point(size=4) +
+  scale_colour_manual(values=c("dodgerblue2", "springgreen3"))+ #in case you need special colors, you can change them here
+  xlab(paste0("PC1: ",percentVar[1],"% вариации")) +
+  ylab(paste0("PC2: ",percentVar[2],"% вариации")) + 
+  #coord_fixed() +
+  theme_bw()+
+  theme(legend.text=element_text(size=10))+
+  ggtitle("Анализ проб с помощью метода главных компонент")+
+  labs(color='Генотип')+
+    theme(axis.title=element_text(size = 15), plot.title = element_text(hjust = 0.5, size = 15), axis.text.y = element_text(size = 15), axis.text.x = element_text(size = 15), legend.text = element_text(size = 15), legend.title = element_text(size = 17))
+
+ggsave("PLOTS/PCAcolor_rus.png", device = "png", width = 25, height = 20, units = "cm") #save color picture
+
+
+ggplot(batchplot, aes(PC1, PC2, shape=condition)) + #Make black-white picture
+  geom_point(size=4, color = 'grey28') +
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
+  theme_bw()+
+  theme(legend.text=element_text(size=10))+
+  ggtitle("PC analysis of samples")+
+  labs(shape=cond)+
+    theme(axis.title=element_text(size = 15), plot.title = element_text(hjust = 0.5, size = 20), axis.text.y = element_text(size = 15), axis.text.x = element_text(size = 15), legend.text = element_text(size = 15), legend.title = element_text(size = 17))
+
+ggsave("PLOTS/PCAbw.eps", device = "eps", width = 25, height = 20, units = "cm") #save bw picture
+
+```
+
+To check our samples using correlation matrix, first we have to run DESeq to normalize data. 
+```{r}
+dds$condition <- relevel(dds$condition, ref = c) #make reference (control) level in our condition
+ddspro <- DESeq(dds) #run DESeq!
+```
+Later we will use resulting dds object for downstream analysis...
+... But now we build correlation matrix to check your samples and to obtain nice picture
+```{r}
+temp1 <- as.data.frame(counts(ddspro, normalized = TRUE)) #extract normalized counts from DESeq data. We will need this table later.
+head (temp1) #check resulting table 
+cormat <- round(cor(temp1),2) #make correlation matrix using cor function
+head(cormat)
+melted_cormat <- reshape2::melt(cormat) #make melted matrix with correlation values for every sample combination
+
+#Now we make and save bw picture
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + geom_tile()+
+  scale_fill_gradient(low = "white", high = "black")  +
+  theme(axis.title=element_blank(), plot.title = element_text(hjust = 0.5, size = 20), axis.text.y = element_text(size = 15), axis.text.x = element_text(size = 15), legend.text = element_text(size = 13), legend.title = element_text(size = 15))+
+  guides(fill=guide_legend(title="Pearson coefficient"))
+ggsave("PLOTS/Cormatbw.eps", device = "eps", width = 25, height = 20, units = "cm")
+melted_cormat$dif <- ifelse (str_extract (melted_cormat$Var1, '^.{3}') == str_extract (melted_cormat$Var2, '^.{3}'), 'Same biological replicates', 'Different biological replicates')
+ggplot (data = melted_cormat, aes (x=dif, y=value))+
+  geom_boxplot(aes (fill = dif))+
+  theme_bw()+
+  theme(legend.position = 'none', axis.title.x=element_blank())+
+  labs (y = 'Pearson coefficient')+
+  scale_fill_manual (values=c("dodgerblue2", "springgreen3"))
+ggsave ('PLOTS/Pearson_comparison.png', device = 'png', width = 25, height = 20, units = 'cm')
+#Now we make and save color picture
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + geom_tile()+
+  scale_fill_gradient(low = "lemonchiffon", high = "#016227")  +
+  theme(axis.title=element_blank(), plot.title = element_text(hjust = 0.5, size = 20), axis.text.y = element_text(size = 20), axis.text.x = element_text(size = 20), legend.text = element_text(size = 13), legend.title = element_text(size = 15))+
+  guides(fill=guide_legend(title="Pearson coefficient"))
+
+ggsave("PLOTS/Cormatcol.eps", device = "eps", width = 25, height = 20, units = "cm")
+
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + geom_tile()+
+  scale_fill_gradient(low = "lemonchiffon", high = "#016227")  +
+  theme(axis.title=element_blank(), plot.title = element_text(hjust = 0.5, size = 20), axis.text.y = element_text(size = 13), axis.text.x = element_text(size = 13), legend.text = element_text(size = 13), legend.title = element_text(size = 15))+
+  guides(fill=guide_legend(title="Коэффициент Пирсона"))
+
+ggsave("PLOTS/Cormatcol_rus.png", device = "png", width = 25, height = 20, units = "cm")
+
+
+```
+
+Perform some preparation steps and then run differential expression analysis
+```{r}
+keep <- rowSums(counts(dds)) >= read_thr #make true/false vector telling us about each gene, if its row contains minimum number of reads across all samples to analyze
+res <- results(ddspro, contrast=c("condition", s, c)) #run difexp analysis
+res_sepf <- subset (res [keep,], abs(log2FoldChange) > LFC & padj < p_value) #select only genes which have at least minimum number of reads and which are differentially expressed, according to fixed log2 fold change and p-value thresholds.
+dim(res) #just check how many genes we had...
+dim (res_sepf) #and how many of them are expressed differentially
+```
+
+Building MaPlot to visualise differentially and non-differentially expressed genes
+```{r}
+postscript(paste('PLOTS/MAplot', length (control), c, 'vs', length (sample), s, '.eps', sep = '_' ))
+DESeq2::plotMA(res, ylim=c(-4,4), alpha=0.01)
+dev.off()
+```
+
+Now we should add to res and res_sepf tables normalized counts because sometimes you need this information.
+```{r}
+#FOR FILTERED RESULTS (DEGs only)
+res_sepdf <- as.data.frame(res_sepf) #make usual dataframe from filtered DESeqResults object
+res_sepdf$GID <- rownames(res_sepf) #add extra column with gene id for merging
+
+head(temp1)
+temp1$GID <- rownames(temp1) #temp1 is the table of normalized counts which we extracted earlier for correlation matrix
+desep <- merge(temp1, res_sepdf, by = 'GID')#now we merge two tables by column with common name (GID)
+head (desep)
+
+#FOR UNFILTERED RESULTS
+resdf <- as.data.frame(res) #make usual dataframe from unfiltered DESeqResults object 
+resdf$GID <- rownames(resdf) #add extra column with gene id for merging
+desepunf <- merge(temp1, resdf, by = 'GID') #now we merge two tables by column with common name (GID)
+
+```
+
+The final step for table is to add annotation if you have it. I have it for Medicago and it's already processed, so it's easy to merge it.
+```{r}
+annot <- read.csv (file='/mnt/Data/MEGA/Research/DNA/Medicago_truncatula_genome/Medicago_genes_short_annotations.csv') #read annotation table
+desepannot <- merge(desep, annot, by = "GID", all.x = TRUE) #merging annotation for filtered results. Note that you should take all desep rows. A lot of genes do not have annotation, but we should not loose them.
+desepunfannot <- merge(desepunf, annot, by = 'GID', all.x = TRUE) #merging annotation for unfiltered results. Note that you should take all desep rows. A lot of genes do not have annotation, but we should not loose them.
+```
+
+Now we have full tables with annotation and counts. We can write them into files 
+```{r}
+
+write.csv(desepannot, file = paste ('TABLES/annotresfiltered', length (control), c, 'vs', length (sample), s, '.csv', sep = '_')) #writing file. We also add some info about the data we processed.
+write.csv(desepunfannot, file = paste ('TABLES/annotresUNfiltered', length (control), c, 'vs', length (sample), s, '.csv', sep = '_')) #writing file. We also add some info about the data we processed.
+```
+
+
+
+
+
+
